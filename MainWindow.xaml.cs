@@ -1,8 +1,15 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
+using System.IO;
+using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using ShakeToBigCursor.Settings;
+using ShakeToBigCursor.UI;
+using ShakeToBigCursor.Updates;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 
@@ -49,9 +56,11 @@ public partial class MainWindow : Window
     };
 
     private readonly Forms.NotifyIcon notifyIcon;
+    private readonly UpdateChecker updateChecker = new();
     private readonly Queue<MouseSample> history = new();
     private readonly IntPtr[] cursorFrames = new IntPtr[CursorFrameCount];
 
+    private UpdateChecker.UpdateInfo? pendingUpdate;
     private DateTime lastFrameTime = DateTime.UtcNow;
     private double energy;
     private double currentCursorHeight = NormalCursorHeight;
@@ -65,12 +74,14 @@ public partial class MainWindow : Window
         Left = SystemParameters.VirtualScreenLeft;
         Top = SystemParameters.VirtualScreenTop;
 
+        StartupManager.Apply(StartupManager.IsEnabled());
         notifyIcon = CreateNotifyIcon();
         RestoreSystemCursors();
         BuildCursorFrames();
 
         timer.Tick += OnTick;
         timer.Start();
+        _ = CheckForUpdatesAsync(manual: false);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -90,21 +101,115 @@ public partial class MainWindow : Window
 
     private Forms.NotifyIcon CreateNotifyIcon()
     {
-        var exitItem = new Forms.ToolStripMenuItem("Exit");
-        exitItem.Click += (_, _) => Close();
-
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("ShakeToBigCursor");
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(exitItem);
-
         return new Forms.NotifyIcon
         {
-            ContextMenuStrip = menu,
-            Icon = Drawing.SystemIcons.Application,
+            ContextMenuStrip = TrayMenu.Create(
+                getLaunchAtLogin: StartupManager.IsEnabled,
+                getUpdate: () => (pendingUpdate != null, pendingUpdate?.Tag),
+                onInstallUpdate: () => _ = InstallUpdateAsync(),
+                onCheckUpdates: () => _ = CheckForUpdatesAsync(manual: true),
+                onLaunchAtLoginChanged: ToggleLaunchAtLogin,
+                onQuit: Close),
+            Icon = LoadTrayIcon(),
             Text = "ShakeToBigCursor - native cursor",
             Visible = true
         };
+    }
+
+    private static Drawing.Icon LoadTrayIcon()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        using var stream = assembly.GetManifestResourceStream("icon.ico");
+        if (stream == null)
+        {
+            return Drawing.SystemIcons.Application;
+        }
+
+        return new Drawing.Icon(stream);
+    }
+
+    private void ToggleLaunchAtLogin(bool enabled)
+    {
+        StartupManager.Apply(enabled);
+        notifyIcon.ShowBalloonTip(
+            2500,
+            "Windows Shake to Find Cursor",
+            enabled ? "Start at login is enabled." : "Start at login is disabled.",
+            Forms.ToolTipIcon.Info);
+    }
+
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        var info = await updateChecker.CheckAsync().ConfigureAwait(true);
+        if (info == null)
+        {
+            if (manual)
+            {
+                notifyIcon.ShowBalloonTip(
+                    3500,
+                    "Windows Shake to Find Cursor",
+                    $"You're on the latest version (v{UpdateChecker.CurrentVersion.ToString(3)}).",
+                    Forms.ToolTipIcon.Info);
+            }
+
+            return;
+        }
+
+        pendingUpdate = info;
+        notifyIcon.ShowBalloonTip(
+            10000,
+            "Update available",
+            $"Version {info.Latest.ToString(3)} is ready. Click here to install.",
+            Forms.ToolTipIcon.Info);
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        var info = pendingUpdate ?? await updateChecker.CheckAsync().ConfigureAwait(true);
+        if (info == null)
+        {
+            notifyIcon.ShowBalloonTip(
+                3500,
+                "Windows Shake to Find Cursor",
+                "No update is available.",
+                Forms.ToolTipIcon.Info);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(info.InstallerUrl))
+        {
+            Process.Start(new ProcessStartInfo(info.HtmlUrl) { UseShellExecute = true });
+            return;
+        }
+
+        try
+        {
+            var installerPath = Path.Combine(Path.GetTempPath(), $"WindowsShakeToFindCursor-{info.Tag}.exe");
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            await using (var source = await http.GetStreamAsync(info.InstallerUrl).ConfigureAwait(true))
+            await using (var destination = File.Create(installerPath))
+            {
+                await source.CopyToAsync(destination).ConfigureAwait(true);
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = installerPath,
+                Arguments = "/SILENT /NORESTART",
+                UseShellExecute = true,
+                Verb = "runas",
+            });
+            Close();
+        }
+        catch
+        {
+            notifyIcon.ShowBalloonTip(
+                5000,
+                "Update failed",
+                "Could not download or start the installer. Opening the release page instead.",
+                Forms.ToolTipIcon.Warning);
+            Process.Start(new ProcessStartInfo(info.HtmlUrl) { UseShellExecute = true });
+        }
     }
 
     private void OnTick(object? sender, EventArgs e)

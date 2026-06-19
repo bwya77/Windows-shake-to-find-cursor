@@ -9,4 +9,14 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += (_, _) => ShakeToBigCursor.MainWindow.RestoreSystemCursorsSafe();
         Exit += (_, _) => ShakeToBigCursor.MainWindow.RestoreSystemCursorsSafe();
     }
+
+    protected override void OnStartup(System.Windows.StartupEventArgs e)
+    {
+        if (e.Args.Any(arg => string.Equals(arg, "--enable-startup", StringComparison.OrdinalIgnoreCase)))
+        {
+            Settings.StartupManager.Apply(enabled: true);
+        }
+
+        base.OnStartup(e);
+    }
 }

@@ -18,6 +18,12 @@ The app lives in the system tray. Right-click the tray icon and choose **Exit** 
 dotnet publish C:\Git\GitHub\Windows-shake-to-find-cursor\ShakeToBigCursor.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
+## Installer, startup, and updates
+
+Release builds include signed portable zips and Inno Setup installers for x64 and arm64. The installer can register **Start at login**, and the tray menu can toggle that setting later without elevation by using the per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key.
+
+The tray menu also includes **Check for updates**. The app checks GitHub Releases, downloads the matching installer for the current architecture when available, and launches it silently so installed copies can update in place.
+
 ## Releases
 
-Every push runs `.github/workflows/release.yml`, publishes a self-contained win-x64 build, zips the binaries, and creates a GitHub release named `build-<run number>`.
+Every push to `main` runs `.github/workflows/release.yml`. The workflow publishes self-contained x64 and arm64 builds, signs binaries and installers when Azure Trusted Signing secrets are configured, creates SHA-256 checksums and provenance attestation, and publishes a GitHub release tagged as `v<version>-build.<run number>`.

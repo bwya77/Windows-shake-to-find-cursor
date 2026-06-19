@@ -4,10 +4,20 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <AssemblyName>WindowsShakeToFindCursor</AssemblyName>
+    <RootNamespace>ShakeToBigCursor</RootNamespace>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <Product>Windows Shake to Find Cursor</Product>
+    <AssemblyTitle>Windows Shake to Find Cursor</AssemblyTitle>
+    <Company>bwya77</Company>
+    <Description>macOS-style shake to find cursor for Windows.</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\icon.ico" LogicalName="icon.ico" />
+  </ItemGroup>
 
 </Project>
