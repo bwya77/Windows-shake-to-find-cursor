@@ -118,7 +118,28 @@ internal sealed class UpdateChecker
             s += ".0";
         }
 
-        return Version.TryParse(s, out var version) ? Normalize(version) : null;
+        if (!Version.TryParse(s, out var version))
+        {
+            return null;
+        }
+
+        var buildMarker = value.IndexOf("-build.", StringComparison.OrdinalIgnoreCase);
+        if (buildMarker >= 0)
+        {
+            var buildText = value[(buildMarker + "-build.".Length)..];
+            var buildEnd = 0;
+            while (buildEnd < buildText.Length && char.IsDigit(buildText[buildEnd]))
+            {
+                buildEnd++;
+            }
+
+            if (buildEnd > 0 && int.TryParse(buildText[..buildEnd], out var buildNumber))
+            {
+                return new Version(version.Major, Math.Max(version.Minor, 0), Math.Max(version.Build, 0), buildNumber);
+            }
+        }
+
+        return Normalize(version);
     }
 
     private static Version Normalize(Version version)

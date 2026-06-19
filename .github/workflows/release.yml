@@ -54,24 +54,28 @@ jobs:
         shell: pwsh
         run: |
           $v = "${{ steps.ver.outputs.version }}"
+          $tag = "${{ steps.ver.outputs.tag }}"
           dotnet publish .\ShakeToBigCursor.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:EnableCompressionInSingleFile=true `
             -p:DebugType=embedded `
             -p:Version=$v `
+            -p:InformationalVersion=$tag `
             -o publish\win-x64
 
       - name: Publish win-arm64
         shell: pwsh
         run: |
           $v = "${{ steps.ver.outputs.version }}"
+          $tag = "${{ steps.ver.outputs.tag }}"
           dotnet publish .\ShakeToBigCursor.csproj -c Release -r win-arm64 --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:EnableCompressionInSingleFile=true `
             -p:DebugType=embedded `
             -p:Version=$v `
+            -p:InformationalVersion=$tag `
             -o publish\win-arm64
 
       - name: Sign binaries (Azure Trusted Signing)
