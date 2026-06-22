@@ -23,8 +23,11 @@ public partial class MainWindow : Window
     private const int VkMiddleButton = 0x04;
 
     private const int HistoryWindowMilliseconds = 350;
-    private const int CursorFrameCount = 64;
+    private const int CursorFrameCount = 257;
     private const double WiggleGate = 0.55;
+    private const double ActivationDelayMilliseconds = 1000;
+    private const double ReleaseHoldMilliseconds = 250;
+    private const double ReleaseShrinkMilliseconds = 550;
     private const double ReleaseTauMilliseconds = 140;
     private const double FollowTauMilliseconds = 55;
     private const double TriggerPath = 900;
@@ -63,9 +66,18 @@ public partial class MainWindow : Window
     private UpdateChecker.UpdateInfo? pendingUpdate;
     private DateTime lastFrameTime = DateTime.UtcNow;
     private double energy;
+    private double pendingEnergy;
     private double currentCursorHeight = NormalCursorHeight;
     private int lastAppliedFrameIndex;
     private bool enlargedCursorApplied;
+    private bool shakeActivated;
+    private bool activeShakeThisTick;
+    private bool releaseHoldCompleted;
+    private bool releaseShrinking;
+    private DateTime? shakeStartedAt;
+    private DateTime? releaseHoldUntil;
+    private DateTime? releaseShrinkStartedAt;
+    private double releaseShrinkStartHeight = NormalCursorHeight;
 
     public MainWindow()
     {
@@ -143,6 +155,8 @@ public partial class MainWindow : Window
         var info = await updateChecker.CheckAsync().ConfigureAwait(true);
         if (info == null)
         {
+            pendingUpdate = null;
+
             if (manual)
             {
                 notifyIcon.ShowBalloonTip(
@@ -217,19 +231,20 @@ public partial class MainWindow : Window
         var now = DateTime.UtcNow;
         var elapsed = Math.Clamp((now - lastFrameTime).TotalSeconds, 0.001, 0.05);
         lastFrameTime = now;
+        activeShakeThisTick = false;
 
         if (IsMouseButtonDown())
         {
             history.Clear();
-            energy = 0;
+            ResetShake();
         }
         else if (TryGetCursorPosition(out var position))
         {
             AddSample(position, now);
         }
 
-        DecayEnergy(elapsed);
-        UpdateCursor(elapsed);
+        DecayEnergy(elapsed, now);
+        UpdateCursor(elapsed, now);
     }
 
     private void AddSample(Drawing.Point point, DateTime now)
@@ -242,7 +257,36 @@ public partial class MainWindow : Window
         }
 
         var instantEnergy = ComputeInstantEnergy();
-        if (instantEnergy > energy)
+        if (instantEnergy <= 0)
+        {
+            if (shakeActivated || releaseHoldUntil.HasValue || (!releaseHoldCompleted && energy > 0))
+            {
+                BeginReleaseHold(now);
+            }
+            else if (energy == 0 && !releaseShrinking)
+            {
+                ResetShake();
+            }
+
+            return;
+        }
+
+        releaseHoldUntil = null;
+        releaseHoldCompleted = false;
+        releaseShrinking = false;
+        releaseShrinkStartedAt = null;
+        shakeStartedAt ??= history.Peek().Time;
+        pendingEnergy = Math.Max(pendingEnergy, instantEnergy);
+
+        if (!shakeActivated && (now - shakeStartedAt.Value).TotalMilliseconds >= ActivationDelayMilliseconds)
+        {
+            shakeActivated = true;
+            energy = Math.Max(energy, pendingEnergy);
+        }
+
+        activeShakeThisTick = shakeActivated;
+
+        if (shakeActivated && instantEnergy > energy)
         {
             energy = instantEnergy;
         }
@@ -303,8 +347,31 @@ public partial class MainWindow : Window
         return Math.Clamp((totalPath - TriggerPath) / (PathForFullSize - TriggerPath), 0, 1);
     }
 
-    private void DecayEnergy(double elapsed)
+    private void DecayEnergy(double elapsed, DateTime now)
     {
+        if (releaseHoldUntil.HasValue)
+        {
+            if (now < releaseHoldUntil.Value)
+            {
+                return;
+            }
+
+            releaseHoldUntil = null;
+            releaseHoldCompleted = true;
+            BeginReleaseShrink(now);
+            return;
+        }
+
+        if (releaseShrinking)
+        {
+            return;
+        }
+
+        if (activeShakeThisTick)
+        {
+            return;
+        }
+
         energy *= Math.Exp(-(elapsed * 1000) / ReleaseTauMilliseconds);
         if (energy < 0.001)
         {
@@ -312,8 +379,67 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateCursor(double elapsed)
+    private void BeginReleaseHold(DateTime now)
     {
+        pendingEnergy = 0;
+        shakeActivated = false;
+        activeShakeThisTick = false;
+        shakeStartedAt = null;
+        releaseHoldUntil ??= now.AddMilliseconds(ReleaseHoldMilliseconds);
+    }
+
+    private void BeginReleaseShrink(DateTime now)
+    {
+        energy = 0;
+        releaseShrinking = true;
+        releaseShrinkStartedAt = now;
+        releaseShrinkStartHeight = currentCursorHeight;
+    }
+
+    private void ResetShake()
+    {
+        energy = 0;
+        pendingEnergy = 0;
+        shakeActivated = false;
+        activeShakeThisTick = false;
+        releaseHoldCompleted = false;
+        releaseShrinking = false;
+        shakeStartedAt = null;
+        releaseHoldUntil = null;
+        releaseShrinkStartedAt = null;
+        releaseShrinkStartHeight = NormalCursorHeight;
+    }
+
+    private void UpdateCursor(double elapsed, DateTime now)
+    {
+        if (releaseHoldUntil.HasValue)
+        {
+            if (currentCursorHeight > NormalCursorHeight + 0.5)
+            {
+                ApplyFrame(GetFrameIndexForHeight(currentCursorHeight));
+            }
+
+            return;
+        }
+
+        if (releaseShrinking && releaseShrinkStartedAt.HasValue)
+        {
+            var progress = Math.Clamp((now - releaseShrinkStartedAt.Value).TotalMilliseconds / ReleaseShrinkMilliseconds, 0, 1);
+            currentCursorHeight = releaseShrinkStartHeight + ((NormalCursorHeight - releaseShrinkStartHeight) * progress);
+
+            if (progress >= 1 || currentCursorHeight <= NormalCursorHeight + 0.5)
+            {
+                currentCursorHeight = NormalCursorHeight;
+                RestoreEnlargedCursor();
+                releaseShrinking = false;
+                releaseShrinkStartedAt = null;
+                return;
+            }
+
+            ApplyFrame(GetFrameIndexForHeight(currentCursorHeight));
+            return;
+        }
+
         var targetHeight = NormalCursorHeight + (energy * (MaxCursorHeight - NormalCursorHeight));
         var alpha = 1 - Math.Exp(-(elapsed * 1000) / FollowTauMilliseconds);
         currentCursorHeight += (targetHeight - currentCursorHeight) * alpha;
@@ -391,8 +517,7 @@ public partial class MainWindow : Window
         for (var i = 0; i < cursorFrames.Length; i++)
         {
             var t = i / (double)(cursorFrames.Length - 1);
-            var biased = Math.Pow(t, 1.8);
-            var height = (int)Math.Round(NormalCursorHeight + (biased * (MaxCursorHeight - NormalCursorHeight)));
+            var height = (int)Math.Round(NormalCursorHeight + (t * (MaxCursorHeight - NormalCursorHeight)));
             cursorFrames[i] = CreateArrowCursor(height);
 
             if (cursorFrames[i] == IntPtr.Zero)

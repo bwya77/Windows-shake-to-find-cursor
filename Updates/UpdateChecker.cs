@@ -18,9 +18,7 @@ internal sealed class UpdateChecker
     {
         get
         {
-            var asm = Assembly.GetExecutingAssembly();
-            var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            return ParseVersion(info) ?? Normalize(asm.GetName().Version ?? new Version(0, 1, 0));
+            return CurrentReleaseVersion.BaseVersion;
         }
     }
 
@@ -49,8 +47,8 @@ internal sealed class UpdateChecker
                 htmlUrl = $"https://github.com/{Owner}/{Repo}/releases/latest";
             }
 
-            var latest = ParseVersion(tag);
-            if (latest == null || latest <= CurrentVersion)
+            var latestRelease = ParseReleaseVersion(tag);
+            if (latestRelease == null || !IsUpdateAvailable(latestRelease.Value, CurrentReleaseVersion))
             {
                 return null;
             }
@@ -71,7 +69,7 @@ internal sealed class UpdateChecker
                 }
             }
 
-            return new UpdateInfo(latest, tag, htmlUrl, installerUrl);
+            return new UpdateInfo(latestRelease.Value.BaseVersion, tag, htmlUrl, installerUrl);
         }
         catch
         {
@@ -87,6 +85,46 @@ internal sealed class UpdateChecker
     };
 
     internal static Version? ParseVersion(string? value)
+    {
+        var releaseVersion = ParseReleaseVersion(value);
+        if (releaseVersion == null)
+        {
+            return null;
+        }
+
+        var version = releaseVersion.Value.BaseVersion;
+        return releaseVersion.Value.BuildNumber.HasValue
+            ? new Version(version.Major, version.Minor, version.Build, releaseVersion.Value.BuildNumber.Value)
+            : version;
+    }
+
+    private static ReleaseVersion CurrentReleaseVersion
+    {
+        get
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            var info = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            return ParseReleaseVersion(info) ?? new ReleaseVersion(Normalize(asm.GetName().Version ?? new Version(0, 1, 0)), null);
+        }
+    }
+
+    private static bool IsUpdateAvailable(ReleaseVersion latest, ReleaseVersion current)
+    {
+        var baseComparison = latest.BaseVersion.CompareTo(current.BaseVersion);
+        if (baseComparison != 0)
+        {
+            return baseComparison > 0;
+        }
+
+        if (latest.BuildNumber.HasValue && current.BuildNumber.HasValue)
+        {
+            return latest.BuildNumber.Value > current.BuildNumber.Value;
+        }
+
+        return false;
+    }
+
+    private static ReleaseVersion? ParseReleaseVersion(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -118,11 +156,13 @@ internal sealed class UpdateChecker
             s += ".0";
         }
 
-        if (!Version.TryParse(s, out var version))
+        if (!Version.TryParse(s, out var parsedVersion))
         {
             return null;
         }
 
+        var version = Normalize(parsedVersion);
+        int? releaseBuildNumber = null;
         var buildMarker = value.IndexOf("-build.", StringComparison.OrdinalIgnoreCase);
         if (buildMarker >= 0)
         {
@@ -135,15 +175,17 @@ internal sealed class UpdateChecker
 
             if (buildEnd > 0 && int.TryParse(buildText[..buildEnd], out var buildNumber))
             {
-                return new Version(version.Major, Math.Max(version.Minor, 0), Math.Max(version.Build, 0), buildNumber);
+                releaseBuildNumber = buildNumber;
             }
         }
 
-        return Normalize(version);
+        return new ReleaseVersion(version, releaseBuildNumber);
     }
 
     private static Version Normalize(Version version)
     {
         return new(version.Major, Math.Max(version.Minor, 0), Math.Max(version.Build, 0));
     }
+
+    private readonly record struct ReleaseVersion(Version BaseVersion, int? BuildNumber);
 }
