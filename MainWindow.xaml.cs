@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     private const double ReleaseHoldMilliseconds = 250;
     private const double ReleaseShrinkMilliseconds = 550;
     private const double ReleaseTauMilliseconds = 140;
-    private const double FollowTauMilliseconds = 55;
+    private const double FollowTauMilliseconds = 140;
     private const double TriggerPath = 900;
     private const double PathForFullSize = TriggerPath * 2.2;
     private const double NormalCursorHeight = 32;
