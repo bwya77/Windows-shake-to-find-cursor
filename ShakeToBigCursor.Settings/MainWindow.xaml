@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="ShakeToBigCursor.SettingsApp.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="40" Padding="14,0,0,0">
+            <TextBlock Text="Windows Shake to Find Cursor"
+                       VerticalAlignment="Center"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
+
+        <muxc:NavigationView Grid.Row="1"
+                             IsBackButtonVisible="Collapsed"
+                             IsSettingsVisible="False"
+                             PaneDisplayMode="Left"
+                             OpenPaneLength="190"
+                             IsPaneToggleButtonVisible="False">
+            <muxc:NavigationView.MenuItems>
+                <muxc:NavigationViewItem Content="Behavior" Tag="behavior" IsSelected="True">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+            </muxc:NavigationView.MenuItems>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="28,12,28,28" Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
+                    <StackPanel Spacing="4" Margin="0,0,0,4">
+                        <TextBlock Text="Behavior" Style="{StaticResource TitleTextBlockStyle}" />
+                        <TextBlock Text="Tune how shaking grows, holds, and shrinks the native Windows cursor."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel Spacing="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="Maximum cursor size" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="The tallest size, in pixels, that the cursor can reach while shaking."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock x:Name="MaxSizeValueText"
+                                           Grid.Column="1"
+                                           MinWidth="72"
+                                           TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            </Grid>
+                            <Slider x:Name="MaxSizeSlider" ValueChanged="OnMaxSizeChanged" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel Spacing="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="Shake before growing" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="How long the mouse must keep shaking before the cursor starts enlarging."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ActivationValueText"
+                                           Grid.Column="1"
+                                           MinWidth="72"
+                                           TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            </Grid>
+                            <Slider x:Name="ActivationSlider" ValueChanged="OnActivationChanged" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel Spacing="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="Hold before shrinking" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="How long the cursor stays at peak size after shaking stops before it starts shrinking."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock x:Name="ReleaseHoldValueText"
+                                           Grid.Column="1"
+                                           MinWidth="72"
+                                           TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            </Grid>
+                            <Slider x:Name="ReleaseHoldSlider" ValueChanged="OnReleaseHoldChanged" />
+                        </StackPanel>
+                    </Border>
+
+                    <Button Content="Restore defaults"
+                            Click="OnRestoreDefaults"
+                            HorizontalAlignment="Left" />
+                </StackPanel>
+            </ScrollViewer>
+        </muxc:NavigationView>
+    </Grid>
+</Window>

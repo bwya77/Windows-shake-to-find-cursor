@@ -23,17 +23,13 @@ public partial class MainWindow : Window
     private const int VkMiddleButton = 0x04;
 
     private const int HistoryWindowMilliseconds = 350;
-    private const int CursorFrameCount = 257;
     private const double WiggleGate = 0.55;
-    private const double ActivationDelayMilliseconds = 1000;
-    private const double ReleaseHoldMilliseconds = 250;
     private const double ReleaseShrinkMilliseconds = 550;
     private const double ReleaseTauMilliseconds = 140;
     private const double FollowTauMilliseconds = 140;
     private const double TriggerPath = 900;
     private const double PathForFullSize = TriggerPath * 2.2;
     private const double NormalCursorHeight = 32;
-    private const double MaxCursorHeight = NormalCursorHeight * 9;
 
     private static readonly uint[] SystemCursorIds =
     [
@@ -60,10 +56,12 @@ public partial class MainWindow : Window
 
     private readonly Forms.NotifyIcon notifyIcon;
     private readonly UpdateChecker updateChecker = new();
+    private readonly SettingsStore settingsStore = new();
     private readonly Queue<MouseSample> history = new();
-    private readonly IntPtr[] cursorFrames = new IntPtr[CursorFrameCount];
+    private IntPtr[] cursorFrames = [];
 
     private UpdateChecker.UpdateInfo? pendingUpdate;
+    private AppSettings settings = new();
     private DateTime lastFrameTime = DateTime.UtcNow;
     private double energy;
     private double pendingEnergy;
@@ -87,6 +85,9 @@ public partial class MainWindow : Window
         Top = SystemParameters.VirtualScreenTop;
 
         StartupManager.Apply(StartupManager.IsEnabled());
+        settings = settingsStore.Current.Clone();
+        settings.Normalize();
+        settingsStore.Changed += OnSettingsChanged;
         notifyIcon = CreateNotifyIcon();
         RestoreSystemCursors();
         BuildCursorFrames();
@@ -101,6 +102,8 @@ public partial class MainWindow : Window
         timer.Stop();
         RestoreEnlargedCursor();
         DestroyCursorFrames();
+        settingsStore.Changed -= OnSettingsChanged;
+        settingsStore.Dispose();
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
         base.OnClosing(e);
@@ -118,6 +121,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = TrayMenu.Create(
                 getLaunchAtLogin: StartupManager.IsEnabled,
                 getUpdate: () => (pendingUpdate != null, pendingUpdate?.Tag),
+                onOpenSettings: OpenSettings,
                 onInstallUpdate: () => _ = InstallUpdateAsync(),
                 onCheckUpdates: () => _ = CheckForUpdatesAsync(manual: true),
                 onLaunchAtLoginChanged: ToggleLaunchAtLogin,
@@ -126,6 +130,65 @@ public partial class MainWindow : Window
             Text = "ShakeToBigCursor - native cursor",
             Visible = true
         };
+    }
+
+    private double MaxCursorHeight => settings.MaxCursorHeight;
+
+    private double ActivationDelayMilliseconds => settings.ActivationDelayMilliseconds;
+
+    private double ReleaseHoldMilliseconds => settings.ReleaseHoldMilliseconds;
+
+    private void OnSettingsChanged(AppSettings updated)
+    {
+        Dispatcher.BeginInvoke(() => ApplySettings(updated));
+    }
+
+    private void ApplySettings(AppSettings updated)
+    {
+        updated.Normalize();
+        var previousMaxCursorHeight = settings.MaxCursorHeight;
+        settings = updated.Clone();
+
+        if (settings.MaxCursorHeight != previousMaxCursorHeight)
+        {
+            RestoreEnlargedCursor();
+            DestroyCursorFrames();
+            currentCursorHeight = NormalCursorHeight;
+            lastAppliedFrameIndex = 0;
+            BuildCursorFrames();
+        }
+    }
+
+    private void OpenSettings()
+    {
+        var settingsExe = Path.Combine(AppContext.BaseDirectory, "Settings", "ShakeToBigCursor.Settings.exe");
+        if (!File.Exists(settingsExe))
+        {
+            settingsExe = Path.Combine(AppContext.BaseDirectory, "ShakeToBigCursor.Settings.exe");
+        }
+
+        if (!File.Exists(settingsExe))
+        {
+            settingsExe = Path.GetFullPath(Path.Combine(
+                AppContext.BaseDirectory,
+                @"..\..\..\..\ShakeToBigCursor.Settings\bin\Debug\net8.0-windows10.0.19041.0\ShakeToBigCursor.Settings.exe"));
+        }
+
+        if (!File.Exists(settingsExe))
+        {
+            notifyIcon.ShowBalloonTip(
+                3500,
+                "Windows Shake to Find Cursor",
+                "Settings are not available in this build.",
+                Forms.ToolTipIcon.Warning);
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = settingsExe,
+            UseShellExecute = true,
+        });
     }
 
     private static Drawing.Icon LoadTrayIcon()
@@ -461,12 +524,12 @@ public partial class MainWindow : Window
     private int GetFrameIndexForHeight(double cursorHeight)
     {
         var scale = Math.Clamp((cursorHeight - NormalCursorHeight) / (MaxCursorHeight - NormalCursorHeight), 0, 1);
-        return (int)Math.Round(scale * (CursorFrameCount - 1));
+        return (int)Math.Round(scale * (cursorFrames.Length - 1));
     }
 
     private void ApplyFrame(int frameIndex)
     {
-        frameIndex = Math.Clamp(frameIndex, 0, CursorFrameCount - 1);
+        frameIndex = Math.Clamp(frameIndex, 0, cursorFrames.Length - 1);
         if (frameIndex == lastAppliedFrameIndex && enlargedCursorApplied)
         {
             return;
@@ -514,6 +577,8 @@ public partial class MainWindow : Window
 
     private void BuildCursorFrames()
     {
+        var frameCount = Math.Max(2, (int)Math.Round(MaxCursorHeight - NormalCursorHeight) + 1);
+        cursorFrames = new IntPtr[frameCount];
         for (var i = 0; i < cursorFrames.Length; i++)
         {
             var t = i / (double)(cursorFrames.Length - 1);

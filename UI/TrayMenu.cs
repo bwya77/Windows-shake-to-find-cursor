@@ -16,6 +16,7 @@ internal static class TrayMenu
     public static ContextMenuStrip Create(
         Func<bool> getLaunchAtLogin,
         Func<(bool available, string? latest)> getUpdate,
+        Action onOpenSettings,
         Action onInstallUpdate,
         Action onCheckUpdates,
         Action<bool> onLaunchAtLoginChanged,
@@ -39,6 +40,7 @@ internal static class TrayMenu
         var update = NewItem("Update available", onInstallUpdate);
         update.Font = new Font(menu.Font, FontStyle.Bold);
         var updateSep = new ToolStripSeparator();
+        var settings = NewItem("Settings", onOpenSettings);
         var check = NewItem("Check for updates", onCheckUpdates);
         var startup = NewItem("Start at login", () => onLaunchAtLoginChanged(!getLaunchAtLogin()));
         startup.CheckOnClick = false;
@@ -46,6 +48,7 @@ internal static class TrayMenu
 
         menu.Items.Add(update);
         menu.Items.Add(updateSep);
+        menu.Items.Add(settings);
         menu.Items.Add(check);
         menu.Items.Add(startup);
         menu.Items.Add(new ToolStripSeparator());

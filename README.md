@@ -4,6 +4,8 @@ A tiny Windows desktop app inspired by macOS cursor discovery. Shake the mouse b
 
 The app does not draw an overlay. It temporarily replaces the native Windows cursor with cached generated cursor frames, then restores the normal system cursor when shaking stops. Detection uses a short sliding window so straight-line movement does not trigger growth, and it is suppressed while mouse buttons are held so dragging and selection keep working normally.
 
+Right-click the tray icon and choose **Settings** to adjust the maximum cursor size, how long shaking must continue before growth starts, and how long the cursor holds at peak size before shrinking.
+
 ## Run
 
 ```powershell

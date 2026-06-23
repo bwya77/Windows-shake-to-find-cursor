@@ -63,6 +63,14 @@ jobs:
             -p:Version=$v `
             -p:InformationalVersion=$tag `
             -o publish\win-x64
+          dotnet publish .\ShakeToBigCursor.Settings\ShakeToBigCursor.Settings.csproj -c Release -r win-x64 `
+            -p:Platform=x64 --self-contained true -p:WindowsAppSDKSelfContained=true `
+            -p:Version=$v `
+            -p:InformationalVersion=$tag `
+            -o publish\win-x64\Settings
+          Get-ChildItem publish\win-x64\Settings -Recurse -File -Include `
+            'onnxruntime*.dll','Microsoft.AI.MachineLearning*.dll','DirectML*.dll' |
+            Remove-Item -Force -ErrorAction SilentlyContinue
 
       - name: Publish win-arm64
         shell: pwsh
@@ -77,6 +85,14 @@ jobs:
             -p:Version=$v `
             -p:InformationalVersion=$tag `
             -o publish\win-arm64
+          dotnet publish .\ShakeToBigCursor.Settings\ShakeToBigCursor.Settings.csproj -c Release -r win-arm64 `
+            -p:Platform=arm64 --self-contained true -p:WindowsAppSDKSelfContained=true `
+            -p:Version=$v `
+            -p:InformationalVersion=$tag `
+            -o publish\win-arm64\Settings
+          Get-ChildItem publish\win-arm64\Settings -Recurse -File -Include `
+            'onnxruntime*.dll','Microsoft.AI.MachineLearning*.dll','DirectML*.dll' |
+            Remove-Item -Force -ErrorAction SilentlyContinue
 
       - name: Sign binaries (Azure Trusted Signing)
         if: env.HAS_SIGNING == 'true'

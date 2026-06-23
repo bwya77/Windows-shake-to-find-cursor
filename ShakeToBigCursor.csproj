@@ -20,4 +20,11 @@
     <EmbeddedResource Include="Assets\icon.ico" LogicalName="icon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="ShakeToBigCursor.Settings\**\*.cs" />
+    <Page Remove="ShakeToBigCursor.Settings\**\*.xaml" />
+    <ApplicationDefinition Remove="ShakeToBigCursor.Settings\**\*.xaml" />
+    <None Remove="ShakeToBigCursor.Settings\**" />
+  </ItemGroup>
+
 </Project>

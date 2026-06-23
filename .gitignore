@@ -1,6 +1,7 @@
 bin/
 obj/
 artifacts/
+publish/
 .vs/
 *.user
 *.suo
