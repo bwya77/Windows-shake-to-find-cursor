@@ -3,10 +3,10 @@ namespace ShakeToBigCursor.Settings;
 /// <summary>User-facing settings persisted to %APPDATA%\WindowsShakeToFindCursor\settings.json.</summary>
 public sealed class AppSettings
 {
-    public const int DefaultMaxCursorHeight = 432;
+    public const int DefaultMaxCursorHeight = 228;
     public const int DefaultActivationDelayMilliseconds = 850;
     public const int DefaultReleaseHoldMilliseconds = 450;
-    public const int CurrentSettingsVersion = 1;
+    public const int CurrentSettingsVersion = 2;
 
     public int SettingsVersion { get; set; }
 
@@ -26,6 +26,14 @@ public sealed class AppSettings
             MaxCursorHeight = DefaultMaxCursorHeight;
             ActivationDelayMilliseconds = DefaultActivationDelayMilliseconds;
             ReleaseHoldMilliseconds = DefaultReleaseHoldMilliseconds;
+        }
+
+        if (SettingsVersion < 2 &&
+            MaxCursorHeight == 432 &&
+            ActivationDelayMilliseconds == DefaultActivationDelayMilliseconds &&
+            ReleaseHoldMilliseconds == DefaultReleaseHoldMilliseconds)
+        {
+            MaxCursorHeight = DefaultMaxCursorHeight;
         }
 
         MaxCursorHeight = Math.Clamp(MaxCursorHeight, 64, 512);

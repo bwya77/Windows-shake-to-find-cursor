@@ -45,8 +45,8 @@ public sealed partial class MainWindow : Window
     {
         MaxSizeSlider.Maximum = 512;
         MaxSizeSlider.Minimum = 64;
-        MaxSizeSlider.StepFrequency = 16;
-        MaxSizeSlider.TickFrequency = 16;
+        MaxSizeSlider.StepFrequency = 4;
+        MaxSizeSlider.TickFrequency = 4;
 
         ActivationSlider.Maximum = 2000;
         ActivationSlider.Minimum = 250;
@@ -86,7 +86,7 @@ public sealed partial class MainWindow : Window
 
         var settings = new AppSettings
         {
-            MaxCursorHeight = Snap(MaxSizeSlider.Value, 16),
+            MaxCursorHeight = Snap(MaxSizeSlider.Value, 4),
             ActivationDelayMilliseconds = Snap(ActivationSlider.Value, 50),
             ReleaseHoldMilliseconds = Snap(ReleaseHoldSlider.Value, 50),
         };
