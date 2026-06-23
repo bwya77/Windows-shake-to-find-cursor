@@ -27,6 +27,7 @@ public sealed partial class MainWindow : Window
         EnforceMinimumSize(680, 500);
         TrySetWindowIcon();
 
+        loading = true;
         ConfigureSliders();
         LoadFrom(store.Current);
         store.Changed += OnStoreChanged;

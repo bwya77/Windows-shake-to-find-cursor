@@ -80,7 +80,13 @@ public sealed class SettingsStore : IDisposable
                 {
                     loaded.Normalize();
                     Current = loaded;
-                    lastJson = JsonSerializer.Serialize(loaded, JsonOpts);
+                    var normalizedJson = JsonSerializer.Serialize(loaded, JsonOpts);
+                    lastJson = normalizedJson;
+                    if (normalizedJson != json)
+                    {
+                        Save(loaded);
+                    }
+
                     return;
                 }
             }
